@@ -1,3 +1,4 @@
+const path = require('path');
 const {getAllFilePathsWithExtension, readFile} = require('./fileSystem');
 const {readLine} = require('./console');
 
@@ -8,11 +9,93 @@ readLine(processCommand);
 
 function getFiles() {
     const filePaths = getAllFilePathsWithExtension(process.cwd(), 'js');
-    return filePaths.map(path => readFile(path));
+    return filePaths.map(file_path => ({
+        fileName: path.basename(file_path),
+        content: readFile(file_path)
+    }));
+}
+
+function getTODO(type = 'default', ...params) {
+    let todos = [];
+    files.forEach(file => {
+        const lines = file.content.split('\n');
+        lines.forEach(line => {
+            const todoMatch = line.match(/\/\/ TODO\s+(.*)/);
+            if(!todoMatch) return;
+            switch (type){
+                case 'important':
+                    if(todoMatch[1].slice(-1) === '!') todos.push([todoMatch[1], file.fileName]);
+                    break;
+                case 'user':
+                    [username, comment_date, comment] = todoMatch[1].split(';');
+                    if(username && comment_date && comment && username.toLowerCase() === params[0][0].toLowerCase()) todos.push([todoMatch[1], file.fileName]);
+                    break;
+                case 'date':
+                    [username, comment_date, comment] = todoMatch[1].split(';');
+                    if(username && comment_date && comment){
+                        comment_date = new Date(comment_date);
+                        if(comment_date >= params[0]) todos.push([todoMatch[1], file.fileName]);
+                    }
+                    break;
+                default:
+                    todos.push([todoMatch[1], file.fileName]);
+            }
+        });
+    });
+    return todos;
 }
 
 function processCommand(command) {
-    switch (command) {
+    const [cmd, ...arg] = command.split(' '); 
+    switch (cmd) {
+        case 'show':
+            printTODO(getTODO());
+            break;
+        case 'important':
+            printTODO(getTODO('important'));
+            break;
+        case 'user':
+            if(!arg[0]) return console.log('Пример использования user {username}')
+                printTODO(getTODO('user', arg));
+            break;
+        case 'sort':
+            if (!arg[0] || (arg[0] != 'importance' && arg[0] != 'user' & arg[0] != 'date')) return console.log('Пример использования sort {importance | user | date}');
+            let todos = getTODO('sort', arg);
+            if(arg[0] === 'importance'){
+                todos.sort((a, b) => {
+                    return (b[0].match(/!/g) || []).length - (a[0].match(/!/g) || []).length;
+                })
+            } else if (arg[0] === 'user'){
+                todos.sort((a, b) => {
+                    const username_a = a[0].split(';');
+                    const username_b = b[0].split(';');
+                    if (username_a.length != 1 && username_b.length != 1) return username_a[0].localeCompare(username_b[0]);
+                    if(username_b.length === 1) return -1; 
+                    if(username_a.length === 1) return 1; 
+                    return 0; 
+                });
+            } else if (arg[0] === 'date'){
+                todos.sort((a, b) => {
+                    const date_a = a[0].split(';');
+                    const date_b = b[0].split(';');
+                    if (date_a.length != 1 && date_b.length != 1){
+                        const parsedDateA = new Date(date_a[1]);
+                        const parsedDateB = new Date(date_b[1]);
+                        return parsedDateB - parsedDateA;
+                    };
+                    if(date_a.length === 1) return 1; 
+                    if(date_b.length === 1) return -1; 
+                    return 0; 
+                });
+            } else return console.log('Пример использования sort {importance | user | date}');
+            printTODO(todos);
+            break;
+        case 'date':
+            if (!arg[0]) return console.log('Пример использования date {yyyy[-mm[-dd]]}');
+            const inputDate = parseDate(arg[0]);
+            if (!inputDate) return console.log('Неправильный формат даты. Пример: date 2015, date 2016-02, date 2018-03-02');
+            printTODO(getTODO('date', inputDate));
+            break;
         case 'exit':
             process.exit(0);
             break;
@@ -22,4 +105,15 @@ function processCommand(command) {
     }
 }
 
+function parseDate(input) {
+    const parts = input.split('-').map(Number);
+    if (parts.length === 1) return new Date(parts[0], 0, 1);
+    else if (parts.length === 2) return new Date(parts[0], parts[1] - 1, 1);
+    else if (parts.length === 3) return new Date(parts[0], parts[1] - 1, parts[2]);
+    else return null;
+}
+
+function printTODO(arr){
+    console.log(arr)
+}
 // TODO you can do it!
