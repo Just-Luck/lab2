@@ -62,9 +62,7 @@ function processCommand(command) {
             if (!arg[0] || (arg[0] != 'importance' && arg[0] != 'user' & arg[0] != 'date')) return console.log('Пример использования sort {importance | user | date}');
             let todos = getTODO('sort', arg);
             if(arg[0] === 'importance'){
-                todos.sort((a, b) => {
-                    return (b[0].match(/!/g) || []).length - (a[0].match(/!/g) || []).length;
-                })
+                todos.sort((a, b) => (b[0].match(/!/g) || []).length - (a[0].match(/!/g) || []).length);
             } else if (arg[0] === 'user'){
                 todos.sort((a, b) => {
                     const username_a = a[0].split(';');
@@ -93,7 +91,7 @@ function processCommand(command) {
         case 'date':
             if (!arg[0]) return console.log('Пример использования date {yyyy[-mm[-dd]]}');
             const inputDate = parseDate(arg[0]);
-            if (!inputDate) return console.log('Неправильный формат даты. Пример: date 2015, date 2016-02, date 2018-03-02');
+            if (!inputDate) return console.log('Пример использования: date 2015, date 2016-02, date 2018-03-02');
             printTODO(getTODO('date', inputDate));
             break;
         case 'exit':
@@ -113,7 +111,22 @@ function parseDate(input) {
     else return null;
 }
 
-function printTODO(arr){
-    console.log(arr)
+function printTODO(arr) {
+    const tableData = arr.map(todo => {
+        let [user, date, comment] = todo[0].split(';').map(part => part ? part.trim() : '');
+        if (!date && !comment)[user, comment] = ['', user];
+        const important = comment && comment.includes('!') ? '!' : '';
+        const truncate = (str, maxLength) => str.length > maxLength ? str.slice(0, maxLength - 3) + '...' : str;
+
+        return {
+            Importance: important,
+            User: user ? truncate(user, 10) : '',
+            Date: date ? truncate(date, 10) : '',
+            Comment: comment ? truncate(comment, 50) : '',
+            File_name: todo[1]
+        };
+    });
+    console.table(tableData);
 }
+
 // TODO you can do it!
